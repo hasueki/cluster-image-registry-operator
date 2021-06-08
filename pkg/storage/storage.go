@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/cluster-image-registry-operator/pkg/storage/azure"
 	"github.com/openshift/cluster-image-registry-operator/pkg/storage/emptydir"
 	"github.com/openshift/cluster-image-registry-operator/pkg/storage/gcs"
+	"github.com/openshift/cluster-image-registry-operator/pkg/storage/ibmcos"
 	"github.com/openshift/cluster-image-registry-operator/pkg/storage/pvc"
 	"github.com/openshift/cluster-image-registry-operator/pkg/storage/s3"
 	"github.com/openshift/cluster-image-registry-operator/pkg/storage/swift"
@@ -58,6 +59,8 @@ func NewDriver(cfg *imageregistryv1.ImageRegistryConfigStorage, kubeconfig *rest
 	var names []string
 	var drivers []Driver
 
+	fmt.Println("[WIP] storage.NewDriver")
+
 	if cfg.EmptyDir != nil {
 		names = append(names, "EmptyDir")
 		drivers = append(drivers, emptydir.NewDriver(cfg.EmptyDir, listers))
@@ -78,6 +81,13 @@ func NewDriver(cfg *imageregistryv1.ImageRegistryConfigStorage, kubeconfig *rest
 		names = append(names, "GCS")
 		ctx := context.Background()
 		drivers = append(drivers, gcs.NewDriver(ctx, cfg.GCS, kubeconfig, listers))
+	}
+
+	if cfg.IBMCOS != nil {
+		fmt.Println("[WIP] storage.NewDriver : cfg.IBMCOS")
+		names = append(names, "IBMCOS")
+		ctx := context.Background()
+		drivers = append(drivers, ibmcos.NewDriver(ctx, cfg.IBMCOS, listers))
 	}
 
 	if cfg.PVC != nil {
