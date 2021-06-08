@@ -284,6 +284,10 @@ type ImageRegistryConfigStorageIBMCOS struct {
 	// bucket is associated with.
 	// +optional
 	ResourceGroupName string `json:"resourceGroupName,omitempty"`
+	// serviceInstanceCrn is the CRN of the IBM Cloud Object Storage service
+	// instance that this bucket is associated with.
+	// +optional
+	ServiceInstanceCRN string `json:"serviceInstanceCrn,omitempty"`
 }
 
 // ImageRegistryConfigStorage describes how the storage should be configured

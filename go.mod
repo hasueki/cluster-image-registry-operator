@@ -28,6 +28,7 @@ require (
 	github.com/goware/urlx v0.3.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.1.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
+  github.com/IBM/ibm-cos-sdk-go v1.7.0
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/onsi/gomega v1.7.1 // indirect
 	github.com/openshift/api v0.0.0-20210415190711-38058be7d6ef
@@ -53,4 +54,4 @@ require (
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10
 )
 
-replace github.com/openshift/api => github.com/hasueki/api v0.0.0-20210607173213-4caa19b96bad
+replace github.com/openshift/api => github.com/hasueki/api v0.0.0-20210608181345-b741c749c4d7
