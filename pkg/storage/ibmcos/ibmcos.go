@@ -3,15 +3,19 @@ package ibmcos
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/client-go/rest"
 
 	corev1 "k8s.io/api/core/v1"
 
 	imageregistryv1 "github.com/openshift/api/imageregistry/v1"
+	operatorapi "github.com/openshift/api/operator/v1"
 
 	regopclient "github.com/openshift/cluster-image-registry-operator/pkg/client"
+	"github.com/openshift/cluster-image-registry-operator/pkg/defaults"
 	"github.com/openshift/cluster-image-registry-operator/pkg/envvar"
+	"github.com/openshift/cluster-image-registry-operator/pkg/storage/util"
 )
 
 type driver struct {
@@ -68,7 +72,11 @@ func (d *driver) RemoveStorage(cr *imageregistryv1.Config) (bool, error) {
 // StorageChanged checks to see if the name of the storage medium
 // has changed
 func (d *driver) StorageChanged(cr *imageregistryv1.Config) bool {
-	fmt.Println("[WIP] ibmcos.StorageChanged")
+	if !reflect.DeepEqual(cr.Status.Storage.IBMCOS, cr.Spec.Storage.IBMCOS) {
+		util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionUnknown, "IBMCOS Configuration Changed", "IBMCOS storage is in an unknown state")
+		return true
+	}
+
 	return false
 }
 
