@@ -46,9 +46,11 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	google.golang.org/api v0.28.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.21.0
-	k8s.io/apimachinery v0.21.0
+	k8s.io/api v0.21.1
+	k8s.io/apimachinery v0.21.1
 	k8s.io/client-go v0.21.0
 	k8s.io/klog/v2 v2.8.0
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10
 )
+
+replace github.com/openshift/api => github.com/hasueki/api v0.0.0-20210607173213-4caa19b96bad

@@ -268,6 +268,24 @@ type ImageRegistryConfigStorageAzure struct {
 	CloudName string `json:"cloudName,omitempty"`
 }
 
+// ImageRegistryConfigStorageIBMCOS holds the information to configure
+// the registry to use IBM Cloud Object Storage for backend storage.
+type ImageRegistryConfigStorageIBMCOS struct {
+	// bucket is the bucket name in which you want to store the registry's
+	// data.
+	// Optional, will be generated if not provided.
+	// +optional
+	Bucket string `json:"bucket,omitempty"`
+	// location is the IBM Cloud location in which your bucket exists.
+	// Optional, will be set based on the installed IBM Cloud location.
+	// +optional
+	Location string `json:"location,omitempty"`
+	// resourceGroupName is the name of the IBM Cloud resource group that this
+	// bucket is associated with.
+	// +optional
+	ResourceGroupName string `json:"resourceGroupName,omitempty"`
+}
+
 // ImageRegistryConfigStorage describes how the storage should be configured
 // for the image registry.
 type ImageRegistryConfigStorage struct {
@@ -292,6 +310,9 @@ type ImageRegistryConfigStorage struct {
 	// azure represents configuration that uses Azure Blob Storage.
 	// +optional
 	Azure *ImageRegistryConfigStorageAzure `json:"azure,omitempty"`
+	// ibmcos represents configuratioin that uses IBM Cloud Object Storage.
+	// +optional
+	IBMCOS *ImageRegistryConfigStorageIBMCOS `json:"ibmcos,omitempty"`
 	// managementState indicates if the operator manages the underlying
 	// storage unit. If Managed the operator will remove the storage when
 	// this operator gets Removed.

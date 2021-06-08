@@ -148,6 +148,10 @@ func GetPlatformStorage(listers *regopclient.Listers) (imageregistryv1.ImageRegi
 	case configapiv1.GCPPlatformType:
 		cfg.GCS = &imageregistryv1.ImageRegistryConfigStorageGCS{}
 		replicas = 2
+	case configapiv1.IBMCloudPlatformType:
+		fmt.Println("[WIP] storage.GetPlatformStorage : cfg.IBMCOS")
+		cfg.IBMCOS = &imageregistryv1.ImageRegistryConfigStorageIBMCOS{}
+		replicas = 2
 	case configapiv1.OpenStackPlatformType:
 		if swift.IsSwiftEnabled(listers) {
 			cfg.Swift = &imageregistryv1.ImageRegistryConfigStorageSwift{}
