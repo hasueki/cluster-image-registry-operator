@@ -332,7 +332,6 @@ func (d *driver) getResourceManagerService() (*resourcemanagerv2.ResourceManager
 
 // ID return the underlying storage identificator, in this case the bucket name.
 func (d *driver) ID() string {
-	fmt.Println("[WIP] ibmcos.ID")
 	return d.Config.Bucket
 }
 
