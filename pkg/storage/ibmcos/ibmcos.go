@@ -6,15 +6,17 @@ import (
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/rest"
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/ibm-cos-sdk-go/aws"
 	"github.com/IBM/ibm-cos-sdk-go/aws/awserr"
 	"github.com/IBM/ibm-cos-sdk-go/aws/credentials/ibmiam"
 	"github.com/IBM/ibm-cos-sdk-go/aws/session"
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
+	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
+	"github.com/IBM/platform-services-go-sdk/resourcemanagerv2"
 	configapiv1 "github.com/openshift/api/config/v1"
 	imageregistryv1 "github.com/openshift/api/imageregistry/v1"
 	operatorapi "github.com/openshift/api/operator/v1"
@@ -28,10 +30,9 @@ import (
 const IAMEndpoint = "https://iam.cloud.ibm.com/identity/token"
 
 type driver struct {
-	Context    context.Context
-	Config     *imageregistryv1.ImageRegistryConfigStorageIBMCOS
-	KubeConfig *rest.Config
-	Listers    *regopclient.Listers
+	Context context.Context
+	Config  *imageregistryv1.ImageRegistryConfigStorageIBMCOS
+	Listers *regopclient.Listers
 
 	// httpClient is used only during tests.
 	// httpClient *http.Client
@@ -58,11 +59,267 @@ func (d *driver) ConfigEnv() (envs envvar.List, err error) {
 	return
 }
 
-// CreateStorage attempts to create a COS bucket and apply any provided
-// configuration.
+// CreateStorage attempts to create an IBM COS service instance and bucket.
 func (d *driver) CreateStorage(cr *imageregistryv1.Config) error {
-	fmt.Println("[WIP] ibmcos.CreateStorage")
+	// Get Infrastructure spec
+	infra, err := util.GetInfrastructure(d.Listers)
+	if err != nil {
+		return err
+	}
+
+	// Set configs from Infrastructure
+	d.Config.Location = infra.Status.PlatformStatus.IBMCloud.Location
+	d.Config.ResourceGroupName = infra.Status.PlatformStatus.IBMCloud.ResourceGroupName
+
+	// Get resource controller service
+	rc, err := d.getResouceControllerService()
+	if err != nil {
+		return err
+	}
+
+	// Get resource manager service
+	rm, err := d.getResourceManagerService()
+	if err != nil {
+		return err
+	}
+
+	// Check if service instance exists
+	if len(d.Config.ServiceInstanceCRN) != 0 {
+		instance, resp, err := rc.GetResourceInstanceWithContext(
+			d.Context,
+			&resourcecontrollerv2.GetResourceInstanceOptions{
+				ID: &d.Config.ServiceInstanceCRN,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("unable to get resource instance: %s with resp code: %d", err.Error(), resp.StatusCode)
+		}
+
+		switch *instance.State {
+		case resourcecontrollerv2.ListResourceInstancesOptionsStateActiveConst:
+			// Service instance exists and is active
+			if *instance.ResourceGroupID != "" {
+				// Get resource group name
+				rg, resp, err := rm.GetResourceGroupWithContext(
+					d.Context,
+					&resourcemanagerv2.GetResourceGroupOptions{
+						ID: instance.ResourceGroupID,
+					},
+				)
+				if err != nil {
+					return fmt.Errorf("unable to get resource group: %s with resp code: %d", err.Error(), resp.StatusCode)
+				}
+				// Set resource group name
+				d.Config.ResourceGroupName = *rg.Name
+			}
+			cr.Status.Storage = imageregistryv1.ImageRegistryConfigStorage{
+				IBMCOS: d.Config.DeepCopy(),
+			}
+			cr.Spec.Storage.IBMCOS = d.Config.DeepCopy()
+			util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, "IBM COS Instance Active", "IBM COS service instance is active")
+		case resourcecontrollerv2.ListResourceInstancesOptionsStateProvisioningConst:
+			// Service instance exists and is provisioning
+			util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, "IBM COS Instance Provisioning", "IBM COS service instance is provisioning")
+			return fmt.Errorf("waiting for IBM COS service instance to finish provisioning")
+		default:
+			// Service instance does not exist
+			d.Config.ServiceInstanceCRN = ""
+			util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, "IBM COS Instance Gone", "IBM COS service instance is inactive or has been removed.")
+		}
+	}
+
+	// Attempt to create a new service instance
+	if len(d.Config.ServiceInstanceCRN) == 0 {
+		// Get resource group details
+		resourceGroups, resp, err := rm.ListResourceGroupsWithContext(
+			d.Context,
+			&resourcemanagerv2.ListResourceGroupsOptions{
+				Name: &d.Config.ResourceGroupName,
+			},
+		)
+		if len(resourceGroups.Resources) == 0 || err != nil {
+			return fmt.Errorf("unable to get resource groups: %s with resp code: %d", err.Error(), resp.StatusCode)
+		}
+
+		// Define instance options
+		serviceInstanceName := fmt.Sprintf("%s-%s", infra.Status.InfrastructureName, defaults.ImageRegistryName)
+		serviceTarget := "bluemix-global"
+		resourceGroupID := *resourceGroups.Resources[0].ID
+		resourcePlanID := "744bfc56-d12c-4866-88d5-dac9139e0e5d"
+
+		// Check if service instance with name already exists
+		instances, resp, err := rc.ListResourceInstancesWithContext(
+			d.Context,
+			&resourcecontrollerv2.ListResourceInstancesOptions{
+				Name:            &serviceInstanceName,
+				ResourceGroupID: &resourceGroupID,
+				ResourcePlanID:  &resourcePlanID,
+			},
+		)
+		if instances == nil || err != nil {
+			return fmt.Errorf("unable to get resource instances: %s with resp code: %d", err.Error(), resp.StatusCode)
+		}
+
+		var instance *resourcecontrollerv2.ResourceInstance
+		if len(instances.Resources) != 0 {
+			// Service instance found
+			instance = &instances.Resources[0]
+		} else {
+			// Create COS service instance
+			instance, resp, err = rc.CreateResourceInstanceWithContext(
+				d.Context,
+				&resourcecontrollerv2.CreateResourceInstanceOptions{
+					Name:           &serviceInstanceName,
+					Target:         &serviceTarget,
+					ResourceGroup:  &resourceGroupID,
+					ResourcePlanID: &resourcePlanID,
+					Tags:           []string{fmt.Sprintf("kubernetes.io_cluster_%s:owned", infra.Status.InfrastructureName)},
+				},
+			)
+			if instance == nil || err != nil {
+				return fmt.Errorf("unable to create resource instance: %s with resp code: %d", err.Error(), resp.StatusCode)
+			}
+
+			if cr.Spec.Storage.ManagementState == "" {
+				cr.Spec.Storage.ManagementState = imageregistryv1.StorageManagementStateManaged
+			}
+		}
+
+		d.Config.ServiceInstanceCRN = *instance.CRN
+		cr.Status.Storage = imageregistryv1.ImageRegistryConfigStorage{
+			IBMCOS: d.Config.DeepCopy(),
+		}
+		cr.Spec.Storage.IBMCOS = d.Config.DeepCopy()
+		util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, "IBM COS Instance Creation Successful", "IBM COS service instance was successfully created")
+	}
+
+	// Check if bucket already exists
+	var bucketExists bool
+	if len(d.Config.Bucket) != 0 {
+		if err := d.bucketExists(d.Config.Bucket, d.Config.ServiceInstanceCRN); err != nil {
+			if aerr, ok := err.(awserr.Error); ok {
+				switch aerr.Code() {
+				case s3.ErrCodeNoSuchBucket, "Forbidden", "NotFound":
+					// If the bucket doesn't exist that's ok, we'll try to create it
+					util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, aerr.Code(), aerr.Error())
+				default:
+					util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionUnknown, "Unknown Error Occurred", err.Error())
+					return err
+				}
+			} else {
+				util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionUnknown, "Unknown Error Occurred", err.Error())
+				return err
+			}
+		} else {
+			bucketExists = true
+		}
+	}
+
+	// Create new bucket if required
+	if len(d.Config.Bucket) != 0 && bucketExists {
+		if cr.Spec.Storage.ManagementState == "" {
+			cr.Spec.Storage.ManagementState = imageregistryv1.StorageManagementStateUnmanaged
+		}
+
+		cr.Status.Storage = imageregistryv1.ImageRegistryConfigStorage{
+			IBMCOS: d.Config.DeepCopy(),
+		}
+		util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionTrue, "IBM COS Bucket Exists", "User supplied IBM COS bucket exists and is accessible")
+	} else {
+		// Attempt to create new bucket
+		if len(d.Config.Bucket) == 0 {
+			if d.Config.Bucket, err = util.GenerateStorageName(d.Listers, d.Config.Location); err != nil {
+				return err
+			}
+		}
+
+		// Get COS client
+		client, err := d.getIBMCOSClient(d.Config.ServiceInstanceCRN)
+		if err != nil {
+			return err
+		}
+
+		// Create COS bucket
+		_, err = client.CreateBucketWithContext(
+			d.Context,
+			&s3.CreateBucketInput{
+				Bucket: aws.String(d.Config.Bucket),
+				CreateBucketConfiguration: &s3.CreateBucketConfiguration{
+					LocationConstraint: aws.String(fmt.Sprintf("%s-smart", d.Config.Location)),
+				},
+			},
+		)
+		if err != nil {
+			if aerr, ok := err.(awserr.Error); ok {
+				util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, aerr.Code(), aerr.Error())
+			}
+			return err
+		}
+
+		if cr.Spec.Storage.ManagementState == "" {
+			cr.Spec.Storage.ManagementState = imageregistryv1.StorageManagementStateManaged
+		}
+		cr.Status.Storage = imageregistryv1.ImageRegistryConfigStorage{
+			IBMCOS: d.Config.DeepCopy(),
+		}
+		cr.Spec.Storage.IBMCOS = d.Config.DeepCopy()
+		util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionTrue, "Creation Successful", "IBM COS bucket was successfully created")
+
+		// Wait until the bucket exists
+		if err := client.WaitUntilBucketExistsWithContext(
+			d.Context,
+			&s3.HeadBucketInput{
+				Bucket: aws.String(d.Config.Bucket),
+			},
+		); err != nil {
+			if aerr, ok := err.(awserr.Error); ok {
+				util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, aerr.Code(), aerr.Error())
+			}
+			return err
+		}
+	}
+
 	return nil
+}
+
+func (d *driver) getResouceControllerService() (*resourcecontrollerv2.ResourceControllerV2, error) {
+	IAMAPIKey, err := d.getCredentialsConfigData()
+	if err != nil {
+		return nil, err
+	}
+
+	service, err := resourcecontrollerv2.NewResourceControllerV2(
+		&resourcecontrollerv2.ResourceControllerV2Options{
+			Authenticator: &core.IamAuthenticator{
+				ApiKey: IAMAPIKey,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return service, nil
+}
+
+func (d *driver) getResourceManagerService() (*resourcemanagerv2.ResourceManagerV2, error) {
+	IAMAPIKey, err := d.getCredentialsConfigData()
+	if err != nil {
+		return nil, err
+	}
+
+	service, err := resourcemanagerv2.NewResourceManagerV2(
+		&resourcemanagerv2.ResourceManagerV2Options{
+			Authenticator: &core.IamAuthenticator{
+				ApiKey: IAMAPIKey,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return service, nil
 }
 
 // ID return the underlying storage identificator, in this case the bucket name.
@@ -85,7 +342,6 @@ func (d *driver) StorageChanged(cr *imageregistryv1.Config) bool {
 		util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionUnknown, "IBMCOS Configuration Changed", "IBMCOS storage is in an unknown state")
 		return true
 	}
-
 	return false
 }
 
@@ -120,9 +376,12 @@ func (d *driver) bucketExists(bucketName string, serviceInstanceCRN string) erro
 		return err
 	}
 
-	_, err = client.HeadBucket(&s3.HeadBucketInput{
-		Bucket: &bucketName,
-	})
+	_, err = client.HeadBucketWithContext(
+		d.Context,
+		&s3.HeadBucketInput{
+			Bucket: &bucketName,
+		},
+	)
 
 	return err
 }

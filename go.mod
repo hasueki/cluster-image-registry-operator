@@ -12,11 +12,13 @@ require (
 	github.com/Azure/go-autorest/autorest/mocks v0.4.1
 	github.com/Azure/go-autorest/autorest/to v0.4.0
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
+	github.com/IBM/go-sdk-core/v5 v5.5.0
+	github.com/IBM/ibm-cos-sdk-go v1.7.0
+	github.com/IBM/platform-services-go-sdk v0.18.15
 	github.com/aws/aws-sdk-go v1.38.35
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/emicklei/go-restful v2.11.1+incompatible // indirect
-	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/go-openapi/swag v0.19.6 // indirect
@@ -28,9 +30,7 @@ require (
 	github.com/goware/urlx v0.3.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.1.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
-  github.com/IBM/ibm-cos-sdk-go v1.7.0
 	github.com/imdario/mergo v0.3.8 // indirect
-	github.com/onsi/gomega v1.7.1 // indirect
 	github.com/openshift/api v0.0.0-20210415190711-38058be7d6ef
 	github.com/openshift/build-machinery-go v0.0.0-20210423112049-9415d7ebd33e
 	github.com/openshift/client-go v0.0.0-20210331195552-cf6c2669e01f
@@ -54,4 +54,4 @@ require (
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10
 )
 
-replace github.com/openshift/api => github.com/hasueki/api v0.0.0-20210608181345-b741c749c4d7
+replace github.com/openshift/api => github.com/hasueki/api v0.0.0-20210609162735-0aab89caa19b

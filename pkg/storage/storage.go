@@ -28,7 +28,7 @@ var (
 )
 
 // MultiStoragesError is returned when we have multiple storage engines
-// configured and we can't determin which one the user wants to use.
+// configured and we can't determine which one the user wants to use.
 type MultiStoragesError struct {
 	names []string
 }

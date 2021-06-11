@@ -314,7 +314,7 @@ type ImageRegistryConfigStorage struct {
 	// azure represents configuration that uses Azure Blob Storage.
 	// +optional
 	Azure *ImageRegistryConfigStorageAzure `json:"azure,omitempty"`
-	// ibmcos represents configuratioin that uses IBM Cloud Object Storage.
+	// ibmcos represents configuration that uses IBM Cloud Object Storage.
 	// +optional
 	IBMCOS *ImageRegistryConfigStorageIBMCOS `json:"ibmcos,omitempty"`
 	// managementState indicates if the operator manages the underlying

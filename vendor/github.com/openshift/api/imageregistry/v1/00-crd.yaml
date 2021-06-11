@@ -1108,6 +1108,30 @@ spec:
                           exists. Optional, will be set based on the installed GCS
                           Region.
                         type: string
+                  ibmcos:
+                    description: ibmcos represents configuration that uses IBM Cloud
+                      Object Storage.
+                    type: object
+                    properties:
+                      bucket:
+                        description: bucket is the bucket name in which you want to
+                          store the registry's data. Optional, will be generated if
+                          not provided.
+                        type: string
+                      location:
+                        description: location is the IBM Cloud location in which your
+                          bucket exists. Optional, will be set based on the installed
+                          IBM Cloud location.
+                        type: string
+                      resourceGroupName:
+                        description: resourceGroupName is the name of the IBM Cloud
+                          resource group that this bucket is associated with.
+                        type: string
+                      serviceInstanceCrn:
+                        description: serviceInstanceCrn is the CRN of the IBM Cloud
+                          Object Storage service instance that this bucket is associated
+                          with.
+                        type: string
                   managementState:
                     description: managementState indicates if the operator manages
                       the underlying storage unit. If Managed the operator will remove
@@ -1405,6 +1429,30 @@ spec:
                         description: region is the GCS location in which your bucket
                           exists. Optional, will be set based on the installed GCS
                           Region.
+                        type: string
+                  ibmcos:
+                    description: ibmcos represents configuration that uses IBM Cloud
+                      Object Storage.
+                    type: object
+                    properties:
+                      bucket:
+                        description: bucket is the bucket name in which you want to
+                          store the registry's data. Optional, will be generated if
+                          not provided.
+                        type: string
+                      location:
+                        description: location is the IBM Cloud location in which your
+                          bucket exists. Optional, will be set based on the installed
+                          IBM Cloud location.
+                        type: string
+                      resourceGroupName:
+                        description: resourceGroupName is the name of the IBM Cloud
+                          resource group that this bucket is associated with.
+                        type: string
+                      serviceInstanceCrn:
+                        description: serviceInstanceCrn is the CRN of the IBM Cloud
+                          Object Storage service instance that this bucket is associated
+                          with.
                         type: string
                   managementState:
                     description: managementState indicates if the operator manages
