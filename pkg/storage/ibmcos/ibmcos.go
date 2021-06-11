@@ -27,7 +27,10 @@ import (
 	"github.com/openshift/cluster-image-registry-operator/pkg/storage/util"
 )
 
-const IAMEndpoint = "https://iam.cloud.ibm.com/identity/token"
+const (
+	IAMEndpoint                = "https://iam.cloud.ibm.com/identity/token"
+	imageRegistrySecretDataKey = "ibmcloud_api_key"
+)
 
 type driver struct {
 	Context context.Context
@@ -451,8 +454,14 @@ func (d *driver) getCredentialsConfigData() (string, error) {
 // VolumeSecrets returns the same credentials data that the image-registry-operator
 // is using so that it can be stored in the image-registry Pod's Secret.
 func (d *driver) VolumeSecrets() (map[string]string, error) {
-	fmt.Println("[WIP] ibmcos.VolumeSecrets")
-	return nil, nil
+	IAMAPIKey, err := d.getCredentialsConfigData()
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]string{
+		imageRegistrySecretDataKey: IAMAPIKey,
+	}, nil
 }
 
 // Volumes returns configuration for mounting credentials data as a Volume for
