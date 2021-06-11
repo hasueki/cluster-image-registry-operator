@@ -3,6 +3,7 @@ package ibmcos
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,8 +29,9 @@ import (
 )
 
 const (
-	IAMEndpoint                = "https://iam.cloud.ibm.com/identity/token"
-	imageRegistrySecretDataKey = "ibmcloud_api_key"
+	IAMEndpoint                   = "https://iam.cloud.ibm.com/identity/token"
+	imageRegistrySecretDataKey    = "ibmcloud_api_key"
+	imageRegistrySecretMountpoint = "/var/run/secrets/cloud"
 )
 
 type driver struct {
@@ -60,6 +62,7 @@ func (d *driver) ConfigEnv() (envs envvar.List, err error) {
 		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_LOCATION", Value: d.Config.Location},
 		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_RESOURCEGROUPNAME", Value: d.Config.ResourceGroupName},
 		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_SERVICEINSTANCECRN", Value: d.Config.ServiceInstanceCRN},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_CREDENTIALSCONFIGPATH", Value: filepath.Join(imageRegistrySecretMountpoint, imageRegistrySecretDataKey)},
 	)
 	return
 }
@@ -467,6 +470,23 @@ func (d *driver) VolumeSecrets() (map[string]string, error) {
 // Volumes returns configuration for mounting credentials data as a Volume for
 // image-registry Pods.
 func (d *driver) Volumes() ([]corev1.Volume, []corev1.VolumeMount, error) {
-	fmt.Println("[WIP] ibmcos.Volumes")
-	return []corev1.Volume{}, []corev1.VolumeMount{}, nil
+	optional := false
+
+	volume := corev1.Volume{
+		Name: defaults.ImageRegistryPrivateConfiguration,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: defaults.ImageRegistryPrivateConfiguration,
+				Optional:   &optional,
+			},
+		},
+	}
+
+	mount := corev1.VolumeMount{
+		Name:      volume.Name,
+		MountPath: imageRegistrySecretMountpoint,
+		ReadOnly:  true,
+	}
+
+	return []corev1.Volume{volume}, []corev1.VolumeMount{mount}, nil
 }
