@@ -55,6 +55,8 @@ func (d *driver) ConfigEnv() (envs envvar.List, err error) {
 		envvar.EnvVar{Name: "REGISTRY_STORAGE", Value: "ibmcos"},
 		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_BUCKET", Value: d.Config.Bucket},
 		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_LOCATION", Value: d.Config.Location},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_RESOURCEGROUPNAME", Value: d.Config.ResourceGroupName},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_SERVICEINSTANCECRN", Value: d.Config.ServiceInstanceCRN},
 	)
 	return
 }
