@@ -16,6 +16,7 @@ import (
 	"github.com/IBM/ibm-cos-sdk-go/aws/credentials/ibmiam"
 	"github.com/IBM/ibm-cos-sdk-go/aws/session"
 	"github.com/IBM/ibm-cos-sdk-go/service/s3"
+	"github.com/IBM/ibm-cos-sdk-go/service/s3/s3manager"
 	"github.com/IBM/platform-services-go-sdk/resourcecontrollerv2"
 	"github.com/IBM/platform-services-go-sdk/resourcemanagerv2"
 	configapiv1 "github.com/openshift/api/config/v1"
@@ -338,8 +339,93 @@ func (d *driver) ID() string {
 // RemoveStorage deletes the storage medium that was created.
 // The COS bucket must be empty before it can be removed
 func (d *driver) RemoveStorage(cr *imageregistryv1.Config) (bool, error) {
-	fmt.Println("[WIP] ibmcos.RemoveStorage")
+	// Not enough info for clean up
+	if len(d.Config.Bucket) == 0 || len(d.Config.ServiceInstanceCRN) == 0 {
+		return false, nil
+	}
+
+	// Only clean up if managed
+	if cr.Spec.Storage.ManagementState != imageregistryv1.StorageManagementStateManaged {
+		return false, nil
+	}
+
+	client, err := d.getIBMCOSClient(d.Config.ServiceInstanceCRN)
+	if err != nil {
+		return false, err
+	}
+
+	iter := s3manager.NewDeleteListIterator(client, &s3.ListObjectsInput{
+		Bucket: aws.String(d.Config.Bucket),
+	})
+
+	err = s3manager.NewBatchDeleteWithClient(client).Delete(d.Context, iter)
+	if err != nil && !isBucketNotFound(err) {
+		return false, err
+	}
+
+	_, err = client.DeleteBucketWithContext(d.Context, &s3.DeleteBucketInput{
+		Bucket: aws.String(d.Config.Bucket),
+	})
+
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == s3.ErrCodeNoSuchBucket {
+				util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, "IBM COS Bucket Deleted", "IBM COS bucket did not exist.")
+				return false, nil
+			}
+			util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionUnknown, aerr.Code(), aerr.Error())
+			return false, err
+		}
+		return true, err
+	}
+
+	// Wait until the bucket does not exist
+	if err := client.WaitUntilBucketNotExistsWithContext(d.Context, &s3.HeadBucketInput{
+		Bucket: aws.String(d.Config.Bucket),
+	}); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionTrue, aerr.Code(), aerr.Error())
+		}
+		return false, err
+	}
+
+	if len(cr.Spec.Storage.IBMCOS.Bucket) != 0 {
+		cr.Spec.Storage.IBMCOS.Bucket = ""
+	}
+
+	d.Config.Bucket = ""
+
+	if !reflect.DeepEqual(cr.Status.Storage.IBMCOS, d.Config) {
+		cr.Status.Storage = imageregistryv1.ImageRegistryConfigStorage{
+			IBMCOS: d.Config.DeepCopy(),
+		}
+	}
+
+	util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, "IBM COS Bucket Deleted", "IBM COS bucket has been removed.")
+
 	return false, nil
+}
+
+func isBucketNotFound(err interface{}) bool {
+	switch s3Err := err.(type) {
+	case awserr.Error:
+		if s3Err.Code() == "NoSuchBucket" {
+			return true
+		}
+		origErr := s3Err.OrigErr()
+		if origErr != nil {
+			return isBucketNotFound(origErr)
+		}
+	case s3manager.Error:
+		if s3Err.OrigErr != nil {
+			return isBucketNotFound(s3Err.OrigErr)
+		}
+	case s3manager.Errors:
+		if len(s3Err) == 1 {
+			return isBucketNotFound(s3Err[0])
+		}
+	}
+	return false
 }
 
 // StorageChanged checks to see if the name of the storage medium
