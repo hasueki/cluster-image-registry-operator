@@ -1,6 +1,7 @@
 package ibmcos
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
@@ -31,7 +32,7 @@ import (
 
 const (
 	IAMEndpoint                   = "https://iam.cloud.ibm.com/identity/token"
-	imageRegistrySecretDataKey    = "ibmcloud_api_key"
+	imageRegistrySecretDataKey    = "credentials"
 	imageRegistrySecretMountpoint = "/var/run/secrets/cloud"
 )
 
@@ -58,12 +59,14 @@ func NewDriver(ctx context.Context, c *imageregistryv1.ImageRegistryConfigStorag
 // used in the image registry deployment.
 func (d *driver) ConfigEnv() (envs envvar.List, err error) {
 	envs = append(envs,
-		envvar.EnvVar{Name: "REGISTRY_STORAGE", Value: "ibmcos"},
-		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_BUCKET", Value: d.Config.Bucket},
-		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_LOCATION", Value: d.Config.Location},
-		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_RESOURCEGROUPNAME", Value: d.Config.ResourceGroupName},
-		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_SERVICEINSTANCECRN", Value: d.Config.ServiceInstanceCRN},
-		envvar.EnvVar{Name: "REGISTRY_STORAGE_IBMCOS_CREDENTIALSCONFIGPATH", Value: filepath.Join(imageRegistrySecretMountpoint, imageRegistrySecretDataKey)},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE", Value: "s3"},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE_S3_BUCKET", Value: d.Config.Bucket},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE_S3_REGION", Value: d.Config.Location},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE_S3_REGIONENDPOINT", Value: fmt.Sprintf("s3.%s.cloud-object-storage.appdomain.cloud", d.Config.Location)},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE_S3_ENCRYPT", Value: false},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE_S3_VIRTUALHOSTEDSTYLE", Value: false},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE_S3_USEDUALSTACK", Value: false},
+		envvar.EnvVar{Name: "REGISTRY_STORAGE_S3_CREDENTIALSCONFIGPATH", Value: filepath.Join(imageRegistrySecretMountpoint, imageRegistrySecretDataKey)},
 	)
 	return
 }
@@ -200,6 +203,34 @@ func (d *driver) CreateStorage(cr *imageregistryv1.Config) error {
 		}
 		cr.Spec.Storage.IBMCOS = d.Config.DeepCopy()
 		util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, "IBM COS Instance Creation Successful", "IBM COS service instance was successfully created")
+	}
+
+	// Create resource key
+	if len(d.Config.ResourceKeyCRN) == 0 {
+		keyName := fmt.Sprintf("%s-%s", infra.Status.InfrastructureName, defaults.ImageRegistryName)
+		roleCRN := "crn:v1:bluemix:public:iam::::serviceRole:Writer"
+		params := &resourcecontrollerv2.ResourceKeyPostParameters{}
+		params.SetProperty("HMAC", true)
+
+		key, resp, err := rc.CreateResourceKeyWithContext(
+			d.Context,
+			&resourcecontrollerv2.CreateResourceKeyOptions{
+				Name:       &keyName,
+				Source:     &d.Config.ServiceInstanceCRN,
+				Role:       &roleCRN,
+				Parameters: params,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("unable to create resource key for service instance: %s with resp code: %d", err.Error(), resp.StatusCode)
+		}
+
+		d.Config.ResourceKeyCRN = *key.CRN
+		cr.Status.Storage = imageregistryv1.ImageRegistryConfigStorage{
+			IBMCOS: d.Config.DeepCopy(),
+		}
+		cr.Spec.Storage.IBMCOS = d.Config.DeepCopy()
+		util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, "IBM COS Resource Key Creation Successful", "IBM COS resource key was successfully created")
 	}
 
 	// Check if bucket already exists
@@ -539,16 +570,59 @@ func (d *driver) getCredentialsConfigData() (string, error) {
 	}
 }
 
-// VolumeSecrets returns the same credentials data that the image-registry-operator
-// is using so that it can be stored in the image-registry Pod's Secret.
+// VolumeSecrets fetches HMAC credentials from the resource key and returns
+// the credentials data so that it can be stored in the image-registry Pod's Secret.
 func (d *driver) VolumeSecrets() (map[string]string, error) {
-	IAMAPIKey, err := d.getCredentialsConfigData()
+	if len(d.Config.ResourceKeyCRN) == 0 {
+		return nil, fmt.Errorf("resource key has not been set")
+	}
+
+	// Get resource controller service
+	rc, err := d.getResouceControllerService()
 	if err != nil {
 		return nil, err
 	}
 
+	// Get resource key
+	key, resp, err := rc.GetResourceKeyWithContext(
+		d.Context,
+		&resourcecontrollerv2.GetResourceKeyOptions{
+			ID: &d.Config.ResourceKeyCRN,
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get resource key for service instance: %s with resp code: %d", err.Error(), resp.StatusCode)
+	}
+
+	var accessKey string
+	var accessSecret string
+
+	if key.Credentials != nil {
+		if prop := key.Credentials.GetProperty("cos_hmac_keys"); prop != nil {
+			if hmacKeys, ok := prop.(map[string]interface{}); ok {
+				accessKey = hmacKeys["access_key_id"].(string)
+				accessSecret = hmacKeys["secret_access_key"].(string)
+			} else {
+				return nil, fmt.Errorf("unable to convert data for HMAC keys")
+			}
+		} else {
+			return nil, fmt.Errorf("specified resource key credentials does not contain HMAC keys")
+		}
+	} else {
+		return nil, fmt.Errorf("specified resource key does not have any attached credentials")
+	}
+
+	if accessKey == "" || accessSecret == "" {
+		return nil, fmt.Errorf("unknown error occurred setting HMAC credentials")
+	}
+
+	buf := &bytes.Buffer{}
+	fmt.Fprint(buf, "[default]\n")
+	fmt.Fprintf(buf, "aws_access_key_id = %s\n", accessKey)
+	fmt.Fprintf(buf, "aws_secret_access_key = %s\n", accessSecret)
+
 	return map[string]string{
-		imageRegistrySecretDataKey: IAMAPIKey,
+		imageRegistrySecretDataKey: buf.String(),
 	}, nil
 }
 

@@ -54,4 +54,4 @@ require (
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10
 )
 
-replace github.com/openshift/api => github.com/hasueki/api v0.0.0-20210609162735-0aab89caa19b
+replace github.com/openshift/api => github.com/hasueki/api v0.0.0-20210616144002-767ee5979974

@@ -284,6 +284,10 @@ type ImageRegistryConfigStorageIBMCOS struct {
 	// bucket is associated with.
 	// +optional
 	ResourceGroupName string `json:"resourceGroupName,omitempty"`
+	// resourceKeyCrn is the CRN of the IBM Cloud resource key that is created
+	// for the service instance. Required to contain HMAC type credentials.
+	// +optional
+	ResourceKeyCRN string `json:"resourceKeyCrn,omitempty"`
 	// serviceInstanceCrn is the CRN of the IBM Cloud Object Storage service
 	// instance that this bucket is associated with.
 	// +optional

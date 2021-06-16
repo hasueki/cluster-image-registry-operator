@@ -122,6 +122,7 @@ var map_ImageRegistryConfigStorageIBMCOS = map[string]string{
 	"bucket":             "bucket is the bucket name in which you want to store the registry's data. Optional, will be generated if not provided.",
 	"location":           "location is the IBM Cloud location in which your bucket exists. Optional, will be set based on the installed IBM Cloud location.",
 	"resourceGroupName":  "resourceGroupName is the name of the IBM Cloud resource group that this bucket is associated with.",
+	"resourceKeyCrn":     "resourceKeyCrn is the CRN of the IBM Cloud resource key that is created for the service instance. Required to contain HMAC type credentials.",
 	"serviceInstanceCrn": "serviceInstanceCrn is the CRN of the IBM Cloud Object Storage service instance that this bucket is associated with.",
 }
 

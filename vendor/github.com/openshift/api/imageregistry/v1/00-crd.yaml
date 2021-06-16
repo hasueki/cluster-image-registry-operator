@@ -1127,6 +1127,11 @@ spec:
                         description: resourceGroupName is the name of the IBM Cloud
                           resource group that this bucket is associated with.
                         type: string
+                      resourceKeyCrn:
+                        description: resourceKeyCrn is the CRN of the IBM Cloud resource
+                          key that is created for the service instance. Required to
+                          contain HMAC type credentials.
+                        type: string
                       serviceInstanceCrn:
                         description: serviceInstanceCrn is the CRN of the IBM Cloud
                           Object Storage service instance that this bucket is associated
@@ -1448,6 +1453,11 @@ spec:
                       resourceGroupName:
                         description: resourceGroupName is the name of the IBM Cloud
                           resource group that this bucket is associated with.
+                        type: string
+                      resourceKeyCrn:
+                        description: resourceKeyCrn is the CRN of the IBM Cloud resource
+                          key that is created for the service instance. Required to
+                          contain HMAC type credentials.
                         type: string
                       serviceInstanceCrn:
                         description: serviceInstanceCrn is the CRN of the IBM Cloud
