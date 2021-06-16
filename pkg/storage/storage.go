@@ -59,8 +59,6 @@ func NewDriver(cfg *imageregistryv1.ImageRegistryConfigStorage, kubeconfig *rest
 	var names []string
 	var drivers []Driver
 
-	fmt.Println("[WIP] storage.NewDriver")
-
 	if cfg.EmptyDir != nil {
 		names = append(names, "EmptyDir")
 		drivers = append(drivers, emptydir.NewDriver(cfg.EmptyDir, listers))
@@ -84,7 +82,6 @@ func NewDriver(cfg *imageregistryv1.ImageRegistryConfigStorage, kubeconfig *rest
 	}
 
 	if cfg.IBMCOS != nil {
-		fmt.Println("[WIP] storage.NewDriver : cfg.IBMCOS")
 		names = append(names, "IBMCOS")
 		ctx := context.Background()
 		drivers = append(drivers, ibmcos.NewDriver(ctx, cfg.IBMCOS, listers))
@@ -159,7 +156,6 @@ func GetPlatformStorage(listers *regopclient.Listers) (imageregistryv1.ImageRegi
 		cfg.GCS = &imageregistryv1.ImageRegistryConfigStorageGCS{}
 		replicas = 2
 	case configapiv1.IBMCloudPlatformType:
-		fmt.Println("[WIP] storage.GetPlatformStorage : cfg.IBMCOS")
 		cfg.IBMCOS = &imageregistryv1.ImageRegistryConfigStorageIBMCOS{}
 		replicas = 2
 	case configapiv1.OpenStackPlatformType:

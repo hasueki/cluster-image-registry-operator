@@ -71,7 +71,8 @@ func (d *driver) ConfigEnv() (envs envvar.List, err error) {
 	return
 }
 
-// CreateStorage attempts to create an IBM COS service instance and bucket.
+// CreateStorage attempts to create an IBM COS service instance,
+// resource key, and bucket.
 func (d *driver) CreateStorage(cr *imageregistryv1.Config) error {
 	// Get Infrastructure spec
 	infra, err := util.GetInfrastructure(d.Listers)
@@ -134,7 +135,7 @@ func (d *driver) CreateStorage(cr *imageregistryv1.Config) error {
 			util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, "IBM COS Instance Provisioning", "IBM COS service instance is provisioning")
 			return fmt.Errorf("waiting for IBM COS service instance to finish provisioning")
 		default:
-			// Service instance does not exist
+			// Service instance does not exist, will create one
 			d.Config.ServiceInstanceCRN = ""
 			util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionFalse, "IBM COS Instance Gone", "IBM COS service instance is inactive or has been removed.")
 		}
@@ -168,7 +169,7 @@ func (d *driver) CreateStorage(cr *imageregistryv1.Config) error {
 				ResourcePlanID:  &resourcePlanID,
 			},
 		)
-		if instances == nil || err != nil {
+		if err != nil {
 			return fmt.Errorf("unable to get resource instances: %s with resp code: %d", err.Error(), resp.StatusCode)
 		}
 
@@ -188,7 +189,7 @@ func (d *driver) CreateStorage(cr *imageregistryv1.Config) error {
 					Tags:           []string{fmt.Sprintf("kubernetes.io_cluster_%s:owned", infra.Status.InfrastructureName)},
 				},
 			)
-			if instance == nil || err != nil {
+			if err != nil {
 				return fmt.Errorf("unable to create resource instance: %s with resp code: %d", err.Error(), resp.StatusCode)
 			}
 
@@ -257,6 +258,7 @@ func (d *driver) CreateStorage(cr *imageregistryv1.Config) error {
 
 	// Create new bucket if required
 	if len(d.Config.Bucket) != 0 && bucketExists {
+		// Bucket exists
 		if cr.Spec.Storage.ManagementState == "" {
 			cr.Spec.Storage.ManagementState = imageregistryv1.StorageManagementStateUnmanaged
 		}
@@ -322,6 +324,8 @@ func (d *driver) CreateStorage(cr *imageregistryv1.Config) error {
 	return nil
 }
 
+// getResouceControllerService returns the IBM Cloud resource controller
+// client.
 func (d *driver) getResouceControllerService() (*resourcecontrollerv2.ResourceControllerV2, error) {
 	IAMAPIKey, err := d.getCredentialsConfigData()
 	if err != nil {
@@ -342,6 +346,8 @@ func (d *driver) getResouceControllerService() (*resourcecontrollerv2.ResourceCo
 	return service, nil
 }
 
+// getResouceManagerService returns the IBM Cloud resource manager
+// client.
 func (d *driver) getResourceManagerService() (*resourcemanagerv2.ResourceManagerV2, error) {
 	IAMAPIKey, err := d.getCredentialsConfigData()
 	if err != nil {
@@ -362,13 +368,13 @@ func (d *driver) getResourceManagerService() (*resourcemanagerv2.ResourceManager
 	return service, nil
 }
 
-// ID return the underlying storage identificator, in this case the bucket name.
+// ID returns the underlying storage identifier, in this case the bucket name.
 func (d *driver) ID() string {
 	return d.Config.Bucket
 }
 
 // RemoveStorage deletes the storage medium that was created.
-// The COS bucket must be empty before it can be removed
+// The COS bucket must be empty before it can be removed.
 func (d *driver) RemoveStorage(cr *imageregistryv1.Config) (bool, error) {
 	// Not enough info for clean up
 	if len(d.Config.Bucket) == 0 || len(d.Config.ServiceInstanceCRN) == 0 {
@@ -437,6 +443,8 @@ func (d *driver) RemoveStorage(cr *imageregistryv1.Config) (bool, error) {
 	return false, nil
 }
 
+// isBucketNotFound determines if a set of S3 errors are indicative
+// of if a bucket is truly not found.
 func isBucketNotFound(err interface{}) bool {
 	switch s3Err := err.(type) {
 	case awserr.Error:
@@ -460,7 +468,7 @@ func isBucketNotFound(err interface{}) bool {
 }
 
 // StorageChanged checks to see if the name of the storage medium
-// has changed
+// has changed.
 func (d *driver) StorageChanged(cr *imageregistryv1.Config) bool {
 	if !reflect.DeepEqual(cr.Status.Storage.IBMCOS, cr.Spec.Storage.IBMCOS) {
 		util.UpdateCondition(cr, defaults.StorageExists, operatorapi.ConditionUnknown, "IBMCOS Configuration Changed", "IBMCOS storage is in an unknown state")
@@ -470,7 +478,7 @@ func (d *driver) StorageChanged(cr *imageregistryv1.Config) bool {
 }
 
 // StorageExists checks if an IBM COS bucket with the given name exists
-// and we can access it
+// and we can access it.
 func (d *driver) StorageExists(cr *imageregistryv1.Config) (bool, error) {
 	if len(d.Config.Bucket) == 0 || len(d.Config.ServiceInstanceCRN) == 0 {
 		return false, nil
@@ -493,7 +501,7 @@ func (d *driver) StorageExists(cr *imageregistryv1.Config) (bool, error) {
 	return true, nil
 }
 
-// bucketExists checks whether or not the IBM COS bucket exists
+// bucketExists checks whether or not the IBM COS bucket exists.
 func (d *driver) bucketExists(bucketName string, serviceInstanceCRN string) error {
 	client, err := d.getIBMCOSClient(serviceInstanceCRN)
 	if err != nil {
@@ -511,7 +519,7 @@ func (d *driver) bucketExists(bucketName string, serviceInstanceCRN string) erro
 }
 
 // getIBMCOSClient returns a client that allows us to interact
-// with the IBM COS service
+// with the IBM COS service.
 func (d *driver) getIBMCOSClient(serviceInstanceCRN string) (*s3.S3, error) {
 
 	infra, err := util.GetInfrastructure(d.Listers)
@@ -570,7 +578,7 @@ func (d *driver) getCredentialsConfigData() (string, error) {
 	}
 }
 
-// VolumeSecrets fetches HMAC credentials from the resource key and returns
+// VolumeSecrets fetches HMAC credentials from a resource key and returns
 // the credentials data so that it can be stored in the image-registry Pod's Secret.
 func (d *driver) VolumeSecrets() (map[string]string, error) {
 	if len(d.Config.ResourceKeyCRN) == 0 {
