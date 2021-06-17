@@ -281,17 +281,23 @@ type ImageRegistryConfigStorageIBMCOS struct {
 	// +optional
 	Location string `json:"location,omitempty"`
 	// resourceGroupName is the name of the IBM Cloud resource group that this
-	// bucket is associated with.
+	// bucket and its service instance is associated with.
+	// Optional, will be set based on the installed IBM Cloud resource group.
 	// +optional
 	ResourceGroupName string `json:"resourceGroupName,omitempty"`
-	// resourceKeyCrn is the CRN of the IBM Cloud resource key that is created
-	// for the service instance. Required to contain HMAC type credentials.
+	// resourceKeyCRN is the CRN of the IBM Cloud resource key that is created
+	// for the service instance. Commonly referred as a service credential and
+	// must contain HMAC type credentials.
+	// Optional, will be computed if not provided.
 	// +optional
-	ResourceKeyCRN string `json:"resourceKeyCrn,omitempty"`
-	// serviceInstanceCrn is the CRN of the IBM Cloud Object Storage service
+	// +kubebuilder:validation:Pattern=`^crn:.+:.+:.+:cloud-object-storage:.+:.+:.+:resource-key:.+$`
+	ResourceKeyCRN string `json:"resourceKeyCRN,omitempty"`
+	// serviceInstanceCRN is the CRN of the IBM Cloud Object Storage service
 	// instance that this bucket is associated with.
+	// Optional, will be computed if not provided.
 	// +optional
-	ServiceInstanceCRN string `json:"serviceInstanceCrn,omitempty"`
+	// +kubebuilder:validation:Pattern=`^crn:.+:.+:.+:cloud-object-storage:.+:.+:.+::$`
+	ServiceInstanceCRN string `json:"serviceInstanceCRN,omitempty"`
 }
 
 // ImageRegistryConfigStorage describes how the storage should be configured

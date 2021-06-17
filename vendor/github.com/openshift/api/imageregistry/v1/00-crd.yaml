@@ -1125,18 +1125,23 @@ spec:
                         type: string
                       resourceGroupName:
                         description: resourceGroupName is the name of the IBM Cloud
-                          resource group that this bucket is associated with.
+                          resource group that this bucket and its service instance
+                          is associated with. Optional, will be set based on the installed
+                          IBM Cloud resource group.
                         type: string
-                      resourceKeyCrn:
-                        description: resourceKeyCrn is the CRN of the IBM Cloud resource
-                          key that is created for the service instance. Required to
-                          contain HMAC type credentials.
+                      resourceKeyCRN:
+                        description: resourceKeyCRN is the CRN of the IBM Cloud resource
+                          key that is created for the service instance. Commonly referred
+                          as a service credential and must contain HMAC type credentials.
+                          Optional, will be computed if not provided.
                         type: string
-                      serviceInstanceCrn:
-                        description: serviceInstanceCrn is the CRN of the IBM Cloud
+                        pattern: ^crn:.+:.+:.+:cloud-object-storage:.+:.+:.+:resource-key:.+$
+                      serviceInstanceCRN:
+                        description: serviceInstanceCRN is the CRN of the IBM Cloud
                           Object Storage service instance that this bucket is associated
-                          with.
+                          with. Optional, will be computed if not provided.
                         type: string
+                        pattern: ^crn:.+:.+:.+:cloud-object-storage:.+:.+:.+::$
                   managementState:
                     description: managementState indicates if the operator manages
                       the underlying storage unit. If Managed the operator will remove
@@ -1452,18 +1457,23 @@ spec:
                         type: string
                       resourceGroupName:
                         description: resourceGroupName is the name of the IBM Cloud
-                          resource group that this bucket is associated with.
+                          resource group that this bucket and its service instance
+                          is associated with. Optional, will be set based on the installed
+                          IBM Cloud resource group.
                         type: string
-                      resourceKeyCrn:
-                        description: resourceKeyCrn is the CRN of the IBM Cloud resource
-                          key that is created for the service instance. Required to
-                          contain HMAC type credentials.
+                      resourceKeyCRN:
+                        description: resourceKeyCRN is the CRN of the IBM Cloud resource
+                          key that is created for the service instance. Commonly referred
+                          as a service credential and must contain HMAC type credentials.
+                          Optional, will be computed if not provided.
                         type: string
-                      serviceInstanceCrn:
-                        description: serviceInstanceCrn is the CRN of the IBM Cloud
+                        pattern: ^crn:.+:.+:.+:cloud-object-storage:.+:.+:.+:resource-key:.+$
+                      serviceInstanceCRN:
+                        description: serviceInstanceCRN is the CRN of the IBM Cloud
                           Object Storage service instance that this bucket is associated
-                          with.
+                          with. Optional, will be computed if not provided.
                         type: string
+                        pattern: ^crn:.+:.+:.+:cloud-object-storage:.+:.+:.+::$
                   managementState:
                     description: managementState indicates if the operator manages
                       the underlying storage unit. If Managed the operator will remove

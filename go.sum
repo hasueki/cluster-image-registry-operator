@@ -474,6 +474,10 @@ github.com/hasueki/api v0.0.0-20210609162735-0aab89caa19b h1:wGLfqj5vHD8aW75K8nq
 github.com/hasueki/api v0.0.0-20210609162735-0aab89caa19b/go.mod h1:izBmoXbUu3z5kUa4FjZhvekTsyzIWiOoaIgJiZBBMQs=
 github.com/hasueki/api v0.0.0-20210616144002-767ee5979974 h1:WUfmZecdSr6DUSpPf0H7aH4ye16+PnXkU99wnZKe914=
 github.com/hasueki/api v0.0.0-20210616144002-767ee5979974/go.mod h1:izBmoXbUu3z5kUa4FjZhvekTsyzIWiOoaIgJiZBBMQs=
+github.com/hasueki/api v0.0.0-20210617191746-bb8a7448e488 h1:LIZrEgFv7/Zd9ZtepqFKSkptlQaXiZUroHDXQQCoZOo=
+github.com/hasueki/api v0.0.0-20210617191746-bb8a7448e488/go.mod h1:izBmoXbUu3z5kUa4FjZhvekTsyzIWiOoaIgJiZBBMQs=
+github.com/hasueki/api v0.0.0-20210618153535-50177cceb0e6 h1:/gN6I/h/2i2ZXSNbIZ/mviIsZ+0Xmwbskbk0KNmVMkM=
+github.com/hasueki/api v0.0.0-20210618153535-50177cceb0e6/go.mod h1:izBmoXbUu3z5kUa4FjZhvekTsyzIWiOoaIgJiZBBMQs=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/hudl/fargo v1.3.0/go.mod h1:y3CKSmjA+wD2gak7sUSXTAoopbhU08POFhmITJgmKTg=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
